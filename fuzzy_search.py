@@ -5,7 +5,7 @@ import sys
 import os
 import shutil
 import re
-from thefuzz import fuzz
+from rapidfuzz import fuzz
 
 def clean_string(s):
     # Convert to lowercase

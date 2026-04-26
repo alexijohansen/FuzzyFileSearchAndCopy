@@ -2,7 +2,7 @@
 
 A Python project for finding files in a directory using fuzzy string matching.
 
-This script reads a JSON configuration file to extract names from a specified CSV file column, finds corresponding files in a source directory using exact and fuzzy matching (via the `thefuzz` library), copies them to a destination directory with padded numeric prefixes, and generates rich JSON metadata files.
+This script reads a JSON configuration file to extract names from a specified CSV file column, finds corresponding files in a source directory using exact and fuzzy matching (via the `rapidfuzz` library), copies them to a destination directory with padded numeric prefixes, and generates rich JSON metadata files.
 
 ## Prerequisites
 
@@ -57,10 +57,10 @@ The script follows this process:
 1. Validates configuration and loads data.
 2. Cleans the strings of both the CSV names and the source file names (removes extensions, converts to lowercase, and removes hyphens, underscores, and dots).
 3. **Exact Match Check**: First, checks if there is an exact match between the cleaned strings.
-4. **Fuzzy Match Check**: If no exact match is found, uses `thefuzz` to calculate a confidence score. If the score is greater than or equal to the `match_confidence_threshold`, it's considered a match.
+4. **Fuzzy Match Check**: If no exact match is found, uses `rapidfuzz` to calculate a confidence score. If the score is greater than or equal to the `match_confidence_threshold`, it's considered a match.
 5. **Copy & Rename**: Any matched files are copied to the `dest_dir`. The newly copied files are renamed to preserve their original name, but a 3-digit padded prefix is added representing the CSV row number of the match (e.g. `002_original_file.zip`).
 6. **JSON Metadata Generation**: For every CSV entry that produces a match, a JSON file is created in a subfolder (named after the CSV column header) located in the same directory as the CSV data file. The JSON file contains the platform, original name, matched filenames, and placeholder fields for year, genre, publisher, and description.
 
-## Trustworthiness of `thefuzz`
+## Trustworthiness of `rapidfuzz`
 
-Yes, `thefuzz` is highly trustworthy. It is the updated and renamed version of the widely-used `fuzzywuzzy` library, relying on Levenshtein Distance to calculate the differences between sequences. It is the standard approach for fuzzy string matching in Python.
+Yes, `rapidfuzz` is highly trustworthy. It is a modern, much faster drop-in replacement for the older `fuzzywuzzy` and `thefuzz` libraries. It is implemented in C++ and provides precompiled binaries for Apple Silicon (M-series Macs), avoiding build errors while providing identical fuzzy matching capabilities.
