@@ -1,5 +1,6 @@
 {
-  "csv_path": "Data/Top 250 Games per console.csv",
+  "match_confidence_threshold": 80,
+  "data_path": "Data/Top 250 Games per console.csv",
   "column_index": 1,
   "source_dir": "source/",
   "dest_dir": "destination/"

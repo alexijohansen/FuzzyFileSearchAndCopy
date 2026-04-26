@@ -32,21 +32,21 @@ def main():
             print(f"Error: Invalid JSON in config file: {e}")
             sys.exit(1)
 
-    required_keys = ['csv_path', 'column_index', 'source_dir', 'dest_dir']
+    required_keys = ['data_path', 'column_index', 'source_dir', 'dest_dir']
     for key in required_keys:
         if key not in config:
             print(f"Error: Missing required key '{key}' in config file.")
             sys.exit(1)
 
-    csv_path = config['csv_path']
+    data_path = config['data_path']
     column_index = config['column_index']
     source_dir = config['source_dir']
     dest_dir = config['dest_dir']
-    threshold = config.get('threshold', 80) # Default to 80 if not provided
+    threshold = config.get('match_confidence_threshold', 80) # Default to 80 if not provided
 
     # Check if files and paths exist
-    if not os.path.exists(csv_path):
-        print(f"Error: CSV file '{csv_path}' not found.")
+    if not os.path.exists(data_path):
+        print(f"Error: CSV file '{data_path}' not found.")
         sys.exit(1)
 
     if not os.path.isdir(source_dir):
@@ -69,10 +69,11 @@ def main():
     # List of tuples: (row_num, original_name, cleaned_name)
     csv_items = []
     try:
-        with open(csv_path, 'r', newline='', encoding='utf-8') as f:
+        with open(data_path, 'r', newline='', encoding='utf-8') as f:
             reader = csv.reader(f)
             try:
-                next(reader) # Skip the first row (header)
+                header = next(reader) # Skip the first row (header)
+                platform_name = header[column_index].strip() if len(header) > column_index else "Unknown_Platform"
             except StopIteration:
                 print("Error: CSV file is empty.")
                 sys.exit(1)
@@ -89,6 +90,14 @@ def main():
         sys.exit(1)
 
     print(f"Successfully loaded {len(csv_items)} names from the CSV.")
+
+    json_out_dir = os.path.join(os.path.dirname(data_path), platform_name)
+    try:
+        os.makedirs(json_out_dir, exist_ok=True)
+        print(f"JSON metadata will be saved to: '{json_out_dir}'")
+    except Exception as e:
+        print(f"Error: Could not create JSON output directory '{json_out_dir}': {e}")
+        sys.exit(1)
 
     # Get source files
     # List of tuples: (original_filename, cleaned_filename_root)
@@ -109,6 +118,7 @@ def main():
 
     matches_found = 0
     files_copied = 0
+    unmatched_entries = []
 
     # Matching logic
     for row_num, orig_csv_name, clean_csv_name in csv_items:
@@ -129,25 +139,58 @@ def main():
         # Copy matched files
         if current_matches:
             matches_found += 1
+            new_filenames_list = []
             for orig_file in current_matches:
                 src_path = os.path.join(source_dir, orig_file)
                 root, ext = os.path.splitext(orig_file)
                 
-                # Format: originalroot_00X.ext (using 3-digit padded row number)
-                new_filename = f"{root}_{row_num:03d}{ext}"
+                # Format: 00X_originalroot.ext (using 3-digit padded row number as prefix)
+                new_filename = f"{row_num:03d}_{root}{ext}"
                 dest_path = os.path.join(dest_dir, new_filename)
                 
                 try:
                     shutil.copy2(src_path, dest_path)
                     files_copied += 1
+                    new_filenames_list.append(new_filename)
                     print(f"Matched '{orig_csv_name}' -> Copied '{orig_file}' to '{new_filename}'")
                 except Exception as e:
                     print(f"Error copying '{orig_file}': {e}")
+            
+            if new_filenames_list:
+                metadata = {
+                    "platform": platform_name,
+                    "name": orig_csv_name,
+                    "rom_names": new_filenames_list,
+                    "year": None,
+                    "genre": None,
+                    "publisher": None,
+                    "description": None
+                }
+                
+                # Sanitize filename for JSON
+                safe_name = re.sub(r'[\\/*?:"<>|]', "", orig_csv_name).strip()
+                json_path = os.path.join(json_out_dir, f"{safe_name}.json")
+                try:
+                    with open(json_path, 'w', encoding='utf-8') as json_file:
+                        json.dump(metadata, json_file, indent=4)
+                except Exception as e:
+                    print(f"Error writing JSON metadata for '{orig_csv_name}': {e}")
         else:
             print(f"No match found for: '{orig_csv_name}'")
+            unmatched_entries.append(f"Row {row_num:03d}: {orig_csv_name}")
 
     print(f"\nSummary: Found matches for {matches_found} out of {len(csv_items)} CSV entries.")
     print(f"Total files copied: {files_copied}")
+
+    if unmatched_entries:
+        log_path = os.path.join(dest_dir, "log_no_match.txt")
+        try:
+            with open(log_path, 'w', encoding='utf-8') as log_file:
+                for entry in unmatched_entries:
+                    log_file.write(entry + '\n')
+            print(f"Logged {len(unmatched_entries)} unmatched entries to '{log_path}'.")
+        except Exception as e:
+            print(f"Error writing unmatched log: {e}")
 
 if __name__ == "__main__":
     main()
